@@ -1,3 +1,12 @@
+#! /usr/bin/env python3
+"""
+Senior Data Scientist.: Dr. Eddy Giusepe Chirinos Isidro
+
+Script finance_crew.py
+======================
+Este script implementa um fluxo de trabalho de análise financeira 
+que analisa dados do mercado de ações e fornece insights.
+"""
 import re
 import json
 import os
@@ -5,16 +14,13 @@ import yfinance as yf
 from pydantic import BaseModel, Field
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai_tools import CodeInterpreterTool, FileReadTool
-
-from dotenv import load_dotenv
-
-load_dotenv()
+from config.settings import OPENAI_API_KEY
 
 class QueryAnalysisOutput(BaseModel):
-    """Structured output for the query analysis task."""
-    symbols: list[str] = Field(..., description="List of stock ticker symbols (e.g., ['TSLA', 'AAPL']).")
-    timeframe: str = Field(..., description="Time period (e.g., '1d', '1mo', '1y').")
-    action: str = Field(..., description="Action to be performed (e.g., 'fetch', 'plot').")
+    """Saída estruturada para a tarefa de análise de consulta."""
+    symbol: str = Field(description="Símbolo de cotação de ações. Exemplo: TSLA, AAPL.")
+    timeframe: str = Field(description="Período de tempo. Exemplo: '1 dia', '1 mês', '1 ano'.")
+    action: str = Field(description="Ação a ser realizada. Exemplo: 'buscar', 'plotar'.")
 
 llm = LLM(
     model="ollama/deepseek-r1:7b",
@@ -22,83 +28,83 @@ llm = LLM(
     # temperature=0.7
 )
 
-# llm = LLM(
+#llm = LLM(
 #     model="openai/gpt-4o",
+#     api_key=OPENAI_API_KEY,
 #     # temperature=0.7
-# )
+#)
 
-# 1) Query parser agent
+# 1) Agente de análise de consulta:
 query_parser_agent = Agent(
-    role="Stock Data Analyst",
-    goal="Extract stock details and fetch required data from this user query: {query}.",
-    backstory="You are a financial analyst specializing in stock market data retrieval.",
+    role="Analista de Dados de Ações",
+    goal="Extrair detalhes das ações e buscar dados necessários a partir da consulta do usuário: {query}.",
+    backstory="Você é um analista financeiro especializado em recuperação de dados de mercado de ações.",
     llm=llm,
     verbose=True,
     memory=True,
 )
 
 query_parsing_task = Task(
-    description="Analyze the user query and extract stock details.",
-    expected_output="A dictionary with keys: 'symbol', 'timeframe', 'action'.",
+    description="Analise a consulta do usuário e extraia detalhes das ações.",
+    expected_output="Um dicionário com as chaves: 'symbol', 'timeframe', 'action'.",
     output_pydantic=QueryAnalysisOutput,
     agent=query_parser_agent,
 )
 
 
-# 2) Code writer agent
+# 2) Agente de escrita de código:
 code_writer_agent = Agent(
-    role="Senior Python Developer",
-    goal="Write Python code to visualize stock data.",
-    backstory="""You are a Senior Python developer specializing in stock market data visualization. 
-                 You are also a Pandas, Matplotlib and yfinance library expert.
-                 You are skilled at writing production-ready Python code""",
+    role="Desenvolvedor Python Senior",
+    goal="Escrever código Python para visualizar dados de ações.",
+    backstory="""Você é um desenvolvedor Python Senior especializado em visualização de dados de mercado de ações. 
+                 Você também é um especialista em bibliotecas Pandas, Matplotlib e yfinance.
+                 Você é habilidoso em escrever código Python pronto para produção.""",
     llm=llm,
     verbose=True,
 )
 
 code_writer_task = Task(
-    description="""Write Python code to visualize stock data based on the inputs from the stock analyst
-                   where you would find stock symbol, timeframe and action.""",
-    expected_output="A clean and executable Python script file (.py) for stock visualization.",
+    description="""Escreva código Python para visualizar dados de ações com base nas entradas do analista de ações,
+                   onde você encontrará o símbolo da ação, o período de tempo e a ação.""",
+    expected_output="Um arquivo Python (.py) limpo e executável para visualização de ações.",
     agent=code_writer_agent,
 )
 
 
-# 3) Code interpreter agent (uses code interpreter tool from crewai)
+# 3) Agente interpretador de código (usa a ferramenta de interpretação de código da Crewai):
 code_interpreter_tool = CodeInterpreterTool()
 
 code_execution_agent = Agent(
-    role="Senior Code Execution Expert",
-    goal="Review and execute the generated Python code by code writer agent to visualize stock data and fix any errors encountered. It can delegate tasks to code writer agent if needed.",
-    backstory="You are a code execution expert. You are skilled at executing Python code.",
+    role="Especialista Sênior em Execução de Código",
+    goal="Revise e execute o código Python gerado pelo agente de escrita de código para visualizar dados de estoque.",
+    backstory="Você é um especialista em execução de código. Você é habilidoso em executar código Python.",
     # tools=[code_interpreter_tool],
-    allow_code_execution=True,   # This automatically adds the CodeInterpreterTool
-    allow_delegation=True,
+    allow_code_execution=True,   # Esta linha automaticamente adiciona o CodeInterpreterTool
     llm=llm,
     verbose=True,
 )
 
 code_execution_task = Task(
-    description="""Review and execute the generated Python code by code writer agent to visualize stock data and fix any errors encountered.""",
-    expected_output="A clean, working and executable Python script file (.py) for stock visualization.",
+    description="""Revise e execute o código Python gerado pelo agente de escrita de código para visualizar dados de estoque.""",
+    expected_output="Um arquivo de script Python limpo e executável (.py) para visualização de ações.",
     agent=code_execution_agent,
 )
 
-# Create the crew
+# Criar a crew:
 crew = Crew(
     agents=[query_parser_agent, code_writer_agent, code_execution_agent],
     tasks=[query_parsing_task, code_writer_task, code_execution_task],
     process=Process.sequential
 )
 
-# Function to be wrapped inside MCP tool
+# Função para ser um wrapped dentro da tool MCP:
 def run_financial_analysis(query):
     result = crew.kickoff(inputs={"query": query})
     return result.raw
 
 if __name__ == "__main__":
-    # Run the crew with a query
-    # query = input("Enter the stock to analyze: ")
-    result = crew.kickoff(inputs={"query": "Plot YTD stock gain of Tesla"})
+    # Executar a crew com uma consulta
+    # query = input("Insira a ação (stock) para analisar: ")
+    result = crew.kickoff(inputs={"query": "Plote a ação YTD de Tesla"})
     print(result.raw)
     

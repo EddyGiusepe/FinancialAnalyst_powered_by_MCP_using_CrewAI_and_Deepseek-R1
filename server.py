@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from finance_crew import run_financial_analysis
 
-# create FastMCP instance
+# Cria uma instância FastMCP:
 mcp = FastMCP("financial-analyst")
 
 @mcp.tool()
