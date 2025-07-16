@@ -9,21 +9,19 @@ Este cliente permite fazer consultas sobre ações e receber análises financeir
 
 Run
 ===
-uv run client_finance.py /home/eddygiusepe/1_github/FinancialAnalyst_powered_by_MCP_using_CrewAI_and_Deepseek-R1/server.py
+uv run client_finance.py /home/karinag/1_GitHub/FinancialAnalyst_powered_by_MCP_using_CrewAI_and_Deepseek-R1/server.py
 """
 import asyncio
 from typing import Optional
 from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from anthropic import Anthropic
+import ollama
 import sys
 import os
 
 # Adiciona o diretório raiz do projeto ao PATH do Python:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from config.settings import ANTHROPIC_API_KEY
 
 
 class FinanceClient:
@@ -31,7 +29,8 @@ class FinanceClient:
         # Inicia session e client objects:
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
-        self.anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
+        # Inicializa o cliente Ollama
+        self.ollama_client = ollama.Client(host="http://localhost:11434")
 
     async def connect_to_server(self, server_script_path: str):
         """Conecta ao servidor MCP de análise financeira
@@ -62,7 +61,7 @@ class FinanceClient:
         print("\nConectado ao servidor com ferramentas:", [tool.name for tool in tools])
 
     async def process_query(self, query: str) -> str:
-        """Processa uma consulta financeira usando Claude e as ferramentas do servidor"""
+        """Processa uma consulta financeira usando Ollama e as ferramentas do servidor"""
         messages = [{"role": "user", "content": query}]
 
         response = await self.session.list_tools()
@@ -75,13 +74,11 @@ class FinanceClient:
             for tool in response.tools
         ]
 
-        # Chamada API Claude inicial:
-        response = self.anthropic.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=4000,
+        # Chamada ao modelo Ollama inicial:
+        response = self.ollama_client.chat(
+            model="deepseek-r1:7b",
             messages=messages,
-            tools=available_tools,
-            temperature=0.1
+            options={"temperature": 0.1}
         )
 
         # Processa resposta e lida com chamadas de ferramenta:
@@ -89,53 +86,32 @@ class FinanceClient:
         saved_code = False
         executed_plot = False
 
-        for content in response.content:
-            if content.type == "text":
-                final_text.append(content.text)
-            elif content.type == "tool_use":
-                tool_name = content.name
-                tool_args = content.input
-
-                # Executa chamada de ferramenta:
-                result = await self.session.call_tool(tool_name, tool_args)
-                
-                # Se for analyze_stock, podemos salvar o código resultante
-                if tool_name == "analyze_stock":
-                    final_text.append(f"\n[Analisando ação: {tool_args['query']}]")
+        # Adiciona a resposta inicial
+        if response.message and response.message.content:
+            final_text.append(response.message.content)
+            
+            # Verifica se a resposta sugere analisar uma ação
+            if "analyze_stock" in response.message.content.lower():
+                # Extrair a consulta da resposta
+                query_parts = query.split()
+                if len(query_parts) >= 2:
+                    stock_query = query
+                    
+                    # Executa chamada de ferramenta:
+                    result = await self.session.call_tool("analyze_stock", {"query": stock_query})
+                    final_text.append(f"\n[Analisando ação: {stock_query}]")
                     code = result.content
+                    
                     # Salva o código automaticamente se a análise foi bem-sucedida
                     if not code.startswith("Erro:"):
                         save_result = await self.session.call_tool("save_code", {"code": code})
                         saved_code = True
                         final_text.append("\n[Código da análise salvo com sucesso]")
-                
-                # Se for save_code, registra que salvamos o código
-                elif tool_name == "save_code":
-                    saved_code = True
-                    final_text.append(f"\n[{result.content}]")
-                
-                # Se for run_code_and_show_plot, executa o plot se o código já foi salvo
-                elif tool_name == "run_code_and_show_plot":
-                    if saved_code:
+                        
+                        # Executa o plot automaticamente
                         await self.session.call_tool("run_code_and_show_plot", {})
                         executed_plot = True
                         final_text.append("\n[Gráfico gerado e exibido]")
-                    else:
-                        final_text.append("\n[Erro: Nenhum código foi salvo para executar]")
-                
-                # Continue a conversa com os resultados da ferramenta:
-                if hasattr(content, "text") and content.text:
-                    messages.append({"role": "assistant", "content": content.text})
-                messages.append({"role": "user", "content": result.content})
-
-                # Obtém próxima resposta do Claude:
-                response = self.anthropic.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
-                    messages=messages,
-                )
-
-                final_text.append(response.content[0].text)
 
         # Se analisamos e salvamos o código, mas não executamos o plot, faça isso agora
         if saved_code and not executed_plot:
@@ -152,7 +128,7 @@ class FinanceClient:
         print("\n🤖 Analista Financeiro MCP Iniciado 📈")
         print("Digite suas consultas sobre ações ou 'sair' para encerrar.")
         print("\nExemplos de consultas:")
-        print("- 'Mostre-me o desempenho da ação da Tesla nos últimos 3 meses'")
+        print("- 'Gere um gráfico da ação NVDA nos últimos 3 meses usando yfinance'")
         print("- 'Compare as ações da Apple e da Microsoft no último ano'")
         print("- 'Analise o volume de negociação da NVDA nos últimos 30 dias'")
 
@@ -189,3 +165,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
