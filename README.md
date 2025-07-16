@@ -17,8 +17,9 @@ Neste projeto usamos as seguintes tecnologias:
 * `Ollama` por servir o `Deepseek-R1` localmente.
 * `Cursor IDE` como host `MCP` ou usaremos um script Client.
 
+### <font color="red">Exemplo de uso</font>
 
-
+![](./exemplo_de_query.jpeg)
 
 
 
