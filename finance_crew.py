@@ -6,14 +6,14 @@ Script finance_crew.py
 ======================
 Este script implementa um fluxo de trabalho de análise financeira 
 que analisa dados do mercado de ações e fornece insights.
+
+Run
+---
+uv run finance_crew.py
 """
-import re
-import json
-import os
-import yfinance as yf
 from pydantic import BaseModel, Field
 from crewai import Agent, Task, Crew, Process, LLM
-from crewai_tools import CodeInterpreterTool, FileReadTool
+from crewai_tools import CodeInterpreterTool
 from config.settings import OPENAI_API_KEY
 
 class QueryAnalysisOutput(BaseModel):
