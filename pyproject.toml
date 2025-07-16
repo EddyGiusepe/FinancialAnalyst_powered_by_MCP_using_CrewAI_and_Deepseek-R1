@@ -5,6 +5,7 @@ description = "Aqui vamos usar várias tecnologias para construir un Analista Fi
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "anthropic>=0.57.1",
     "crewai>=0.141.0",
     "crewai-tools>=0.51.1",
     "ipykernel>=6.29.5",
