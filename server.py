@@ -1,3 +1,11 @@
+#! /usr/bin/env python3
+"""
+Senior Data Scientist.: Dr. Eddy Giusepe Chirinos Isidro
+
+Script server.py
+================
+Este script implementa um servidor MCP (Model Context Protocol) para análise financeira.
+"""
 from mcp.server.fastmcp import FastMCP
 from finance_crew import run_financial_analysis
 
@@ -7,58 +15,59 @@ mcp = FastMCP("financial-analyst")
 @mcp.tool()
 def analyze_stock(query: str) -> str:
     """
-    Analyzes stock market data based on the query and generates executable Python code for analysis and visualization.
-    Returns a formatted Python script ready for execution.
+    Analisa dados do mercado de ações com base na consulta e gera código Python executável para análise e visualização.
+    Retorna um script Python formatado pronto para execução.
     
-    The query is a string that must contain the stock symbol (e.g., TSLA, AAPL, NVDA, etc.), 
-    timeframe (e.g., 1d, 1mo, 1y), and action to perform (e.g., plot, analyze, compare).
+    A consulta é uma string que deve conter o símbolo da ação (exemplo: TSLA, AAPL, NVDA, etc.), 
+    período de tempo (exemplo: 1 dia, 1 mês, 1 ano), e a ação a ser realizada (exemplo: plotar, analisar, comparar).
 
-    Example queries:
-    - "Show me Tesla's stock performance over the last 3 months"
-    - "Compare Apple and Microsoft stocks for the past year"
-    - "Analyze the trading volume of Amazon stock for the last month"
+    Exemplos de consultas:
+    - "Mostre-me o desempenho da ação da Tesla nos últimos 3 meses"
+    - "Compare as ações da Apple e da Microsoft nos últimos 12 meses"
+    - "Analise o volume de negociação da ação da Amazon nos últimos 30 dias"
 
     Args:
-        query (str): The query to analyze the stock market data.
+        query (str): A consulta para analisar os dados do mercado de ações.
     
     Returns:
-        str: A nicely formatted python code as a string.
+        str: Um código Python formatado pronto para execução.
     """
     try:
         result = run_financial_analysis(query)
         return result
     except Exception as e:
-        return f"Error: {e}"
+        return f"Erro: {e}"
     
 
 @mcp.tool()
 def save_code(code: str) -> str:
     """
-    Expects a nicely formatted, working and executable python code as input in form of a string. 
-    Save the given code to a file stock_analysis.py, make sure the code is a valid python file, nicely formatted and ready to execute.
+    Espera um código Python formatado, pronto para execução e executável como entrada em forma de string. 
+    Salva o código fornecido em um arquivo stock_analysis.py, certifique-se de que o código é um arquivo 
+    Python válido, formatado e pronto para execução.
 
     Args:
-        code (str): The nicely formatted, working and executable python code as string.
+        code (str): O código Python formatado, pronto para execução e executável como string.
     
     Returns:
-        str: A message indicating the code was saved successfully.
+        str: Uma mensagem indicando que o código foi salvo com sucesso.
     """
     try:
         with open('stock_analysis.py', 'w') as f:
             f.write(code)
-        return "Code saved to stock_analysis.py"
+        return "Código salvo em stock_analysis.py"
     except Exception as e:
-        return f"Error: {e}"
+        return f"Erro: {e}"
 
 @mcp.tool()
 def run_code_and_show_plot() -> str:
     """
-    Run the code in stock_analysis.py and generate the plot
+    Executa o código em stock_analysis.py e gera o gráfico
     """
     with open('stock_analysis.py', 'r') as f:
         exec(f.read())
 
-# Run the server locally
+# Executa o servidor (server) localmente:
 if __name__ == "__main__":
     mcp.run(transport='stdio')
     
